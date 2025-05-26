@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <script type="module" src="https://unpkg.com/@material/web/all.js?module"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <%# <link rel="stylesheet" href="https://unpkg.com/@material/web/dist/material-web.css"> %> <!-- Using custom M3 variables now -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>WeatherWise</h1> <!-- App Title -->
+
+        <div id="city-input-container"> <!-- Changed ID here -->
+            <md-filled-text-field id="city-input" label="Enter City" style="width: 100%;"></md-filled-text-field>
+            <div id="suggestions-list" style="position: absolute; width: 100%; background-color: white; border: 1px solid #ccc; z-index: 1000; max-height: 200px; overflow-y: auto; display: none;">
+                <!-- Suggestions will be populated here by JS -->
+            </div>
+        </div>
+        <md-filled-button id="search-button">Search</md-filled-button>
+
+        <div id="current-weather-container" class="weather-card" style="margin-top:20px;">
+            <h3>Current Weather</h3>
+            <span class="material-symbols-outlined" id="current-weather-micon">thermostat</span>
+            <p>Condition: <span id="current-description">--</span></p>
+            <p>Temperature: <span id="current-temp">--</span>°C</p>
+            <p>Humidity: <span id="current-humidity">--</span>%</p>
+            <p>Precipitation: <span id="current-precipitation">--</span>mm</p>
+        </div>
+
+        <h2 style="margin-top: 30px; margin-bottom: 10px; color: var(--md-sys-color-primary);">3-Day Forecast</h2>
+        <div id="forecast-container">
+            <!-- Day 1 -->
+            <div class="forecast-day weather-card" id="forecast-day-0">
+                <h3><span class="forecast-date">Date</span></h3>
+                <span class="material-symbols-outlined forecast-icon">device_thermostat</span>
+                <p><span class="forecast-description">Desc</span></p>
+                <p>High: <span class="forecast-high">--</span>°C / Low: <span class="forecast-low">--</span>°C</p>
+                <p>Humidity: <span class="forecast-humidity">--</span>%</p>
+                <p>Precip: <span class="forecast-precipitation">--</span>mm</p>
+            </div>
+            <!-- Day 2 -->
+            <div class="forecast-day weather-card" id="forecast-day-1">
+                <h3><span class="forecast-date">Date</span></h3>
+                <span class="material-symbols-outlined forecast-icon">device_thermostat</span>
+                <p><span class="forecast-description">Desc</span></p>
+                <p>High: <span class="forecast-high">--</span>°C / Low: <span class="forecast-low">--</span>°C</p>
+                <p>Humidity: <span class="forecast-humidity">--</span>%</p>
+                <p>Precip: <span class="forecast-precipitation">--</span>mm</p>
+            </div>
+            <!-- Day 3 -->
+            <div class="forecast-day weather-card" id="forecast-day-2">
+                <h3><span class="forecast-date">Date</span></h3>
+                <span class="material-symbols-outlined forecast-icon">device_thermostat</span>
+                <p><span class="forecast-description">Desc</span></p>
+                <p>High: <span class="forecast-high">--</span>°C / Low: <span class="forecast-low">--</span>°C</p>
+                <p>Humidity: <span class="forecast-humidity">--</span>%</p>
+                <p>Precip: <span class="forecast-precipitation">--</span>mm</p>
+            </div>
+        </div>
+    </div> <!-- end .container -->
+    <script src="/js/main.js"></script>
+</body>
+</html>

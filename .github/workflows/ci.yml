@@ -1,0 +1,33 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [ main ] # Or master, depending on your default branch
+  pull_request:
+    branches: [ main ] # Or master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x] # Test on two LTS Node.js versions
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4 # Using latest major version
+
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm' # Cache npm dependencies
+
+    - name: Install dependencies
+      run: npm ci # Use 'ci' for cleaner installs in CI
+
+    - name: Run tests
+      run: npm test
+      # env: # Only if tests needed the API key; current tests are designed not to.
+        # OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
