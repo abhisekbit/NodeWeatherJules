@@ -53,6 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentHumidityEl.textContent = data.current.humidity;
                 currentPrecipitationEl.textContent = data.current.precipitation;
                 currentDescriptionEl.textContent = data.current.description;
+
+                const currentCityInfoEl = document.getElementById('current-city-info');
+                if (currentCityInfoEl && data.current.cityInfo) {
+                    currentCityInfoEl.textContent = data.current.cityInfo;
+                }
                 
                 // Using Material Icons based on OpenWeatherMap icon code
                 const materialIconName = weatherIconMap[data.current.icon] || 'thermostat'; // Default icon

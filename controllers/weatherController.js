@@ -7,143 +7,195 @@ const getWeatherData = async (req, res, next) => {
     if (!city) {
         const err = new Error('City parameter is required');
         err.statusCode = 400;
-        return next(err); // Pass error to centralized handler
+        return next(err);
     }
 
     const apiKey = process.env.OPENWEATHER_API_KEY;
-
-    // Current dummy data logic when API_KEY is missing
     if (!apiKey) {
-        console.warn("OPENWEATHER_API_KEY not set. Returning dummy weather data for development.");
-        // (Keep existing dummy data response for now for frontend dev)
-        const dummyWeatherData = {
-            current: {
-                dt: Math.floor(Date.now() / 1000), temp: 25, humidity: 60,
-                weather: [{ description: 'Sunny (Dummy)', icon: '01d' }], rain: { '1h': 0 }
-            },
-            daily: [
-                { dt: Math.floor(Date.now() / 1000) + 86400 * 1, temp: { min: 18, max: 28 }, humidity: 55, weather: [{ description: 'Mostly Sunny (Dummy)', icon: '02d' }], rain: 0 },
-                { dt: Math.floor(Date.now() / 1000) + 86400 * 2, temp: { min: 17, max: 27 }, humidity: 62, weather: [{ description: 'Light Rain (Dummy)', icon: '10d' }], rain: 5 },
-                { dt: Math.floor(Date.now() / 1000) + 86400 * 3, temp: { min: 16, max: 26 }, humidity: 65, weather: [{ description: 'Cloudy (Dummy)', icon: '03d' }], rain: 2 },
-            ]
-        };
-         const processedData = {
-            current: {
-                temp: dummyWeatherData.current.temp, humidity: dummyWeatherData.current.humidity,
-                precipitation: dummyWeatherData.current.rain ? dummyWeatherData.current.rain['1h'] : 0,
-                description: dummyWeatherData.current.weather[0].description, icon: dummyWeatherData.current.weather[0].icon
-            },
-            forecast: dummyWeatherData.daily.slice(0, 3).map(day => ({
-                date: new Date(day.dt * 1000).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric'}),
-                high: day.temp.max, low: day.temp.min, humidity: day.humidity, precipitation: day.rain || 0,
-                description: day.weather[0].description, icon: day.weather[0].icon
-            }))
-        };
-        return res.json(processedData);
+        const err = new Error('OpenWeatherMap API key is missing. Please set it in the .env file.');
+        err.statusCode = 500;
+        return next(err);
     }
-    
-    // Placeholder for actual API calls - this section would be live when API key is used
+
     try {
-        // STEP 1: Geocoding (Example of future error handling)
-        // const geoUrl = `http://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${apiKey}`;
-        // const geoResponse = await fetch(geoUrl);
-        // if (!geoResponse.ok) {
-        //     const errorData = await geoResponse.json();
-        //     const err = new Error(errorData.message || `Geocoding API error: ${geoResponse.statusText}`);
-        //     err.statusCode = geoResponse.status;
-        //     return next(err);
-        // }
-        // const geoData = await geoResponse.json();
-        // if (!geoData || geoData.length === 0) {
-        //     const err = new Error('City not found');
-        //     err.statusCode = 404;
-        //     return next(err);
-        // }
-        // const { lat, lon } = geoData[0];
+        // Step 1: Geocoding (remains the same)
+        const geoUrl = `http://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${apiKey}`;
+        console.log(`Fetching geocoding data from: ${geoUrl.replace(apiKey, 'YOUR_API_KEY')}`);
+        const geoResponse = await fetch(geoUrl);
 
-        // console.log(`Simulating actual API call for ${city} (lat: ${lat}, lon: ${lon})`);
-        // const { lat, lon } = geoData[0];
+        if (!geoResponse.ok) {
+            let errorMsg = `Geocoding API error: ${geoResponse.status} ${geoResponse.statusText}`;
+            try { const eData = await geoResponse.json(); errorMsg = eData.message || errorMsg; } catch (e) {}
+            const err = new Error(errorMsg); err.statusCode = geoResponse.status; return next(err);
+        }
+        const geoData = await geoResponse.json();
+        if (!geoData || geoData.length === 0) {
+            const err = new Error(`City "${city}" not found.`); err.statusCode = 404; return next(err);
+        }
+        const { lat, lon, name: foundCityName, country, state } = geoData[0];
+        console.log(`Geocoded "${city}" to: ${foundCityName}, ${state ? state + ', ' : ''}${country} (Lat: ${lat}, Lon: ${lon})`);
 
-        // console.log(`Simulating actual API call for ${city} (lat: ${lat}, lon: ${lon})`);
+        // Step 2: Get Current Weather Data (API 2.5)
+        const currentWeatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+        console.log(`Fetching current weather from: ${currentWeatherUrl.replace(apiKey, 'YOUR_API_KEY')}`);
+        const currentWeatherResponse = await fetch(currentWeatherUrl);
+
+        if (!currentWeatherResponse.ok) {
+            let errorMsg = `Current Weather API error: ${currentWeatherResponse.status} ${currentWeatherResponse.statusText}`;
+            try { const eData = await currentWeatherResponse.json(); errorMsg = eData.message || errorMsg; } catch (e) {}
+            const err = new Error(errorMsg); err.statusCode = currentWeatherResponse.status; return next(err);
+        }
+        const currentWeatherData = await currentWeatherResponse.json();
+
+        // Step 3: Get 5-day/3-hour Forecast Data (API 2.5)
+        const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+        console.log(`Fetching forecast from: ${forecastUrl.replace(apiKey, 'YOUR_API_KEY')}`);
+        const forecastResponse = await fetch(forecastUrl);
+
+        if (!forecastResponse.ok) {
+            let errorMsg = `Forecast API error: ${forecastResponse.status} ${forecastResponse.statusText}`;
+            try { const eData = await forecastResponse.json(); errorMsg = eData.message || errorMsg; } catch (e) {}
+            const err = new Error(errorMsg); err.statusCode = forecastResponse.status; return next(err);
+        }
+        const forecastData = await forecastResponse.json();
+
+        // Process Current Weather
+        const processedCurrentWeather = {
+            temp: currentWeatherData.main.temp,
+            humidity: currentWeatherData.main.humidity,
+            precipitation: (currentWeatherData.rain && currentWeatherData.rain['1h'] ? currentWeatherData.rain['1h'] : 0) || (currentWeatherData.snow && currentWeatherData.snow['1h'] ? currentWeatherData.snow['1h'] : 0),
+            description: currentWeatherData.weather[0].description,
+            icon: currentWeatherData.weather[0].icon,
+            cityInfo: `${foundCityName}${state ? ', ' + state : ''}, ${country}`
+        };
+
+        // Process 5-day/3-hour Forecast into daily summaries
+        const dailyForecasts = {};
+        forecastData.list.forEach(item => {
+            const date = new Date(item.dt * 1000).toISOString().split('T')[0]; // Get YYYY-MM-DD
+            if (!dailyForecasts[date]) {
+                dailyForecasts[date] = {
+                    temps: [],
+                    humidities: [],
+                    precipitations: [],
+                    weatherCounts: {}, // To find most common weather
+                    icons: [], // Store all icons for the day
+                    descriptions: [], // Store all descriptions for the day
+                    dt: item.dt // Store one dt for sorting/display date
+                };
+            }
+            dailyForecasts[date].temps.push(item.main.temp);
+            dailyForecasts[date].humidities.push(item.main.humidity);
+            dailyForecasts[date].precipitations.push((item.rain && item.rain['3h'] ? item.rain['3h'] : 0) + (item.snow && item.snow['3h'] ? item.snow['3h'] : 0));
+            
+            const weatherKey = `${item.weather[0].description}-${item.weather[0].icon}`;
+            dailyForecasts[date].weatherCounts[weatherKey] = (dailyForecasts[date].weatherCounts[weatherKey] || 0) + 1;
+            // Storing all icons and descriptions to pick the one corresponding to mostCommonWeatherKey later
+            dailyForecasts[date].icons.push(item.weather[0].icon);
+            dailyForecasts[date].descriptions.push(item.weather[0].description);
+        });
+
+        const processedForecast = Object.keys(dailyForecasts).map(dateStr => {
+            const dayData = dailyForecasts[dateStr];
+            let mostCommonWeatherKey = null;
+            let maxCount = 0;
+            
+            // Determine the most common weather condition for the day
+            for (const key in dayData.weatherCounts) {
+                if (dayData.weatherCounts[key] > maxCount) {
+                    maxCount = dayData.weatherCounts[key];
+                    mostCommonWeatherKey = key;
+                }
+            }
+            
+            let finalDesc = dayData.descriptions[0] || 'N/A'; // Default to first description
+            let finalIcon = dayData.icons[0] || '01d'; // Default to first icon
+
+            if (mostCommonWeatherKey) {
+                [finalDesc, finalIcon] = mostCommonWeatherKey.split('-');
+            }
+            
+            return {
+                // Use the stored dt to create the date string, ensuring it's from the actual day's data
+                date: new Date(dayData.dt * 1000).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+                high: Math.max(...dayData.temps),
+                low: Math.min(...dayData.temps),
+                humidity: Math.round(dayData.humidities.reduce((a, b) => a + b, 0) / dayData.humidities.length), // Average humidity, rounded
+                precipitation: dayData.precipitations.reduce((a, b) => a + b, 0), // Sum of precipitation for the day
+                description: finalDesc,
+                icon: finalIcon
+            };
+        }).sort((a,b) => { // Sort by date to ensure chronological order
+            // Convert "Mon, Jan 1" style dates to actual Date objects for comparison
+            // This assumes the year is the current year, which is generally fine for forecasts.
+            const dateA = new Date(a.date.split(',')[1].trim() + ", " + new Date().getFullYear());
+            const dateB = new Date(b.date.split(',')[1].trim() + ", " + new Date().getFullYear());
+            return dateA - dateB;
+        });
         
-        // If we reach here, API KEY is present, and we should attempt actual calls (which are mocked in tests)
-        // The test 'should call next with error if actual fetch fails' relies on this path.
-        // The actual implementation of fetch calls (geo and weather) is still placeholder/commented out,
-        // so a successful call won't happen, but a fetch *failure* can be tested.
-        // The test `fetch.mockImplementationOnce(() => Promise.reject(new Error("Network failure")));`
-        // will cause the catch block below to be hit.
+        const todayStr = new Date(currentWeatherData.dt * 1000).toISOString().split('T')[0];
         
-        // Example: trying the first fetch (geocoding) which is mocked to fail in the test
-        const geoUrl = `http://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${apiKey}`;
-        await fetch(geoUrl); // This will use the mock that rejects
+        let finalForecastDays = processedForecast.filter(dayForecast => {
+            // Create a comparable date string (YYYY-MM-DD) from the forecast day's "Day, Mon D" string
+            // This is a simplified approach; for full robustness, ensure year consistency if forecast spans year-end
+            const forecastDateObj = new Date(dayForecast.date.split(',')[1].trim() + ", " + new Date().getFullYear());
+            const forecastDateStr = forecastDateObj.toISOString().split('T')[0];
+            return forecastDateStr > todayStr;
+        }).slice(0, 3); // Take the next 3 distinct future days
 
-        // The rest of the original commented out API call logic would follow here...
-        // For the test, we only need one fetch to fail to hit the catch block.
 
-        // If all fetches were successful, we would process and send data.
-        // Since the test makes fetch fail, this part won't be reached in the failing test.
-        res.json({ message: "This part should not be reached in the failing fetch test" });
-
+        res.json({
+            current: processedCurrentWeather,
+            forecast: finalForecastDays 
+        });
 
     } catch (error) {
-        // Catch network errors or other unexpected issues during fetch
-        console.error('Error in getWeatherData controller (API Key Present Path):', error.message); // More specific log
-        const err = new Error('Failed to fetch weather data due to an unexpected error.');
-        err.statusCode = 500; // Internal Server Error
-        next(err); // Pass to centralized error handler
+        console.error('Error in getWeatherData controller:', error);
+        const err = new Error('Failed to fetch weather data due to an unexpected server error.');
+        err.statusCode = 500;
+        next(err);
     }
 };
 
+// getCitySuggestions remains the same as it uses Geocoding API 1.0 which is fine.
 const getCitySuggestions = async (req, res, next) => {
     const { search } = req.query;
 
     if (!search || search.length < 2) {
-        // Not really an error, just no content to return.
-        // Sending 204 No Content is more appropriate than an error.
-        return res.status(204).send(); 
+        return res.status(204).send();
     }
 
     const apiKey = process.env.OPENWEATHER_API_KEY;
     if (!apiKey) {
-        console.warn("OPENWEATHER_API_KEY not set for city suggestions. Returning dummy suggestions for development.");
-        const dummySuggestions = [
-            { name: "London", country: "GB", state: "England" },
-            { name: "Los Angeles", country: "US", state: "CA" },
-            { name: "Lagos", country: "NG" },
-            { name: "Lima", country: "PE" },
-            { name: "Lisbon", country: "PT" },
-            { name: "Ljubljana", country: "SI"}
-        ];
-        const filteredSuggestions = dummySuggestions.filter(city => 
-            city.name.toLowerCase().startsWith(search.toLowerCase())
-        ).map(city => `${city.name}, ${city.state ? city.state + ', ' : ''}${city.country}`);
-        return res.json(filteredSuggestions.slice(0, 5));
+        const err = new Error('OpenWeatherMap API key is missing for suggestions. Please set it in the .env file.');
+        err.statusCode = 500;
+        return next(err);
     }
 
-    // Placeholder for actual API calls
     try {
-        // const geoUrl = `http://api.openweathermap.org/geo/1.0/direct?q=${search}&limit=5&appid=${apiKey}`;
-        // const geoResponse = await fetch(geoUrl);
-        // if (!geoResponse.ok) {
-        //     const errorData = await geoResponse.json();
-        //     const err = new Error(errorData.message || `Suggestion API error: ${geoResponse.statusText}`);
-        //     err.statusCode = geoResponse.status;
-        //     return next(err);
-        // }
-        // const geoData = await geoResponse.json();
-        // ... process geoData for suggestions ...
-        // res.json(suggestions);
-        
-        // If we reach here, API KEY is present, and we should attempt actual calls
-        const geoUrl = `http://api.openweathermap.org/geo/1.0/direct?q=${search}&limit=5&appid=${apiKey}`;
-        await fetch(geoUrl); // This will use the mock that rejects in the test
+        const geoUrl = `http://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(search)}&limit=5&appid=${apiKey}`;
+        console.log(`Fetching city suggestions from: ${geoUrl.replace(apiKey, 'YOUR_API_KEY')}`);
+        const geoResponse = await fetch(geoUrl);
 
-        // If successful, process and send suggestions
-        res.json({ message: "This part should not be reached in the failing fetch test for suggestions" });
-
+        if (!geoResponse.ok) {
+            let errorMsg = `City Suggestion API error: ${geoResponse.status} ${geoResponse.statusText}`;
+            try { const eData = await geoResponse.json(); errorMsg = eData.message || errorMsg; } catch (e) {}
+            const err = new Error(errorMsg); err.statusCode = geoResponse.status; return next(err);
+        }
+        const geoData = await geoResponse.json();
+        if (!geoData || geoData.length === 0) {
+            return res.json([]);
+        }
+        const suggestions = geoData.map(city => {
+            let displayName = city.name;
+            if (city.state) displayName += `, ${city.state}`;
+            displayName += `, ${city.country}`;
+            return displayName;
+        });
+        res.json(suggestions);
     } catch (error) {
-        console.error('Error in getCitySuggestions controller (API Key Present Path):', error.message); // More specific log
-        const err = new Error('Failed to fetch city suggestions due to an unexpected error.');
+        console.error('Error in getCitySuggestions controller:', error);
+        const err = new Error('Failed to fetch city suggestions due to an unexpected server error.');
         err.statusCode = 500;
         next(err);
     }
